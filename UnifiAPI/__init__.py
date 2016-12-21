@@ -940,3 +940,60 @@ class UnifiAPI:
             "x_ssh_md5passwd": x_ssh_md5passwd
         })
         return self.response(content, inspect.stack()[0].function, 'Set Site Settings')
+
+    def add_hotspot2(self, name, network_access_internet=True, network_type=2, venue_group=2, venue_type=0):
+        """
+        Add HotSpot 2.0, simple settings
+        :param name:
+        :param network_access_internet:
+        :param network_type:
+        :param venue_group:
+        :param venue_type:
+        :return:
+        """
+        content = self.sitecmdjson('/rest/hotspot2conf', {
+            "name": name,
+            "network_access_internet": network_access_internet,
+            "network_type": network_type,
+            "venue_group": venue_group,
+            "venue_type": venue_type
+        })
+        return self.response(content, inspect.stack()[0].function, 'Add Hotspot 2.0')
+
+    def list_hotspot2(self):
+        """
+        List the hotspot2.0 sites
+        :return:
+        """
+        content = self.sitecmdjson('/rest/hotspot2conf')
+        return self.response(content, inspect.stack()[0].function, 'List Hotspot 2.0 sites')
+
+    def delete_hotspot2(self, hs_id):
+        """
+        Delete hotspot 2.0
+        :param hs_id:
+        :return:
+        """
+        content = self.sitecmdjson('/rest/hotspot2conf/'+str(hs_id), {}, method='DELETE')
+        return self.response(content, inspect.stack()[0].function, 'Delete Hotspot 2.0 sites')
+
+    def set_hotspot2(self, hs_id, name=None, network_access_internet=None, network_type=None, venue_group=None, venue_type=None):
+        """
+        Modify Hotspot 2.0
+        :param hs_id:
+        :param name:
+        :param network_access_internet:
+        :param network_type:
+        :param venue_group:
+        :param venue_type:
+        :return:
+        """
+        content = self.sitecmdjson('/rest/hotspot2conf/'+str(hs_id), {
+            "_id": hs_id,
+            "name": name,
+            "network_access_internet": network_access_internet,
+            "network_type": network_type,
+            "venue_group": venue_group,
+            "venue_type": venue_type
+        }, method="PUT")
+        return self.response(content, inspect.stack()[0].function, 'Modify Hotspot 2.0 sites')
