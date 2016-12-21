@@ -6,6 +6,7 @@ import urllib.error
 import json
 import ssl
 import time
+import inspect
 
 
 class UnifiAPI:
@@ -48,30 +49,37 @@ class UnifiAPI:
         opener.addheaders = [('User-agent', 'Mozilla/5.0')]
         urllib.request.install_opener(opener)
 
-    def request(self, url, data=None, headers=None):
+    def request(self, url, data=None, headers=None, method='POST'):
         # req = None
         headers = headers or {'Content-type': 'application/json', 'Referer': '/login'}
         self.log('Request to %s with data %s' % (self.baseurl + url, data))
         if data:
-            req = urllib.request.Request(url=self.baseurl + url, data=json.dumps(data).encode("utf8"), headers=headers)
+            req = urllib.request.Request(url=self.baseurl + url, data=json.dumps(data).encode("utf8"), headers=headers, method=method)
         else:
-            req = urllib.request.Request(url=self.baseurl + url, headers=headers)
+            req = urllib.request.Request(url=self.baseurl + url, headers=headers, method='GET')
         return urllib.request.urlopen(req)
 
-    def reqjson(self, url, data=None, headers=None):
+    def reqjson(self, url, data=None, headers=None, method='POST'):
         self.login()
-        resp = self.request(url, data, headers)
+        resp = self.request(url, data, headers, method)
         content = json.loads(resp.read().decode('utf8'))
         return content
 
-    def sitecmd(self, url, data=None, headers=None):
+    def sitecmd(self, url, data=None, headers=None, method='POST'):
         self.login()
-        return self.request('/api/s/' + self.site + url, data, headers)
+        return self.request('/api/s/' + self.site + url, data, headers, method)
 
-    def sitecmdjson(self, url, data=None, header=None):
-        resp = self.sitecmd(url, data, header)
+    def sitecmdjson(self, url, data=None, header=None, method='POST'):
+        resp = self.sitecmd(url, data, header, method)
         content = json.loads(resp.read().decode('utf8'))
         return content
+
+    def response(self, content, type="UnifiError", description="UnifiError"):
+        if 'meta' in content and 'rc' in content['meta'] and content['meta']['rc'] == 'ok':
+            self.log('%s, %s completed successfully' % (type, description))
+            return content
+        self.log('%s, %s completed not successfully' % (type, description))
+        raise Exception(type, description, content)
 
     def login(self, username=None, password=None):
         """
@@ -138,11 +146,7 @@ class UnifiAPI:
             data['ap_mac'] = apmac.lower()
 
         content = self.sitecmdjson('/cmd/stamgr', data)
-        if content['meta']['rc'] == 'ok':
-            self.log('Authorizing %s was successful' % mac)
-            return True
-        self.log('Authorizing %s was not successful' % mac)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Guest Authorization')
 
     def unauthorize_guest(self, mac):
         """
@@ -154,11 +158,7 @@ class UnifiAPI:
             'cmd': 'unauthorize-guest',
             'mac': mac.lower()
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Authorizing %s was successful' % mac)
-            return True
-        self.log('Authorizing %s was not successful' % mac)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Guest Unuthorization')
 
     def kick_sta(self, mac):
         """
@@ -170,11 +170,7 @@ class UnifiAPI:
             'cmd': 'kick-sta',
             'mac': mac.lower()
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Kicking %s was successful' % mac)
-            return True
-        self.log('Kicking %s was not successful' % mac)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Kicking Station')
 
     def block_sta(self, mac):
         """
@@ -186,11 +182,7 @@ class UnifiAPI:
             'cmd': 'block-sta',
             'mac': mac.lower()
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Blocking %s was successful' % mac)
-            return True
-        self.log('Blocking %s was not successful' % mac)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Blocking Station')
 
     def unblock_sta(self, mac):
         """
@@ -202,11 +194,7 @@ class UnifiAPI:
             'cmd': 'unblock-sta',
             'mac': mac.lower()
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Unblocking %s was successful' % mac)
-            return True
-        self.log('Unblocking %s was not successful' % mac)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Unblocking Station')
 
     def set_sta_note(self, user, note=''):
         """
@@ -219,11 +207,7 @@ class UnifiAPI:
             'note': note,
             'noted': True if note else False
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Noting %s was successful' % user)
-            return True
-        self.log('Noting %s was not successful' % user)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Set Station Note')
 
     def set_sta_name(self, user, name=''):
         """
@@ -235,11 +219,7 @@ class UnifiAPI:
         content = self.sitecmdjson('/upd/user/' + user, {
             'name': name
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Naming %s was successful' % user)
-            return True
-        self.log('Naming %s was not successful' % user)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Setting Station Name')
 
     def stat_daily_site(self, start=None, end=None):
         """
@@ -256,11 +236,7 @@ class UnifiAPI:
             'start': unixstart,
             'end': unixend
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'Daily Statistics for site')
 
     def stat_hourly_site(self, start=None, end=None):
         """
@@ -277,11 +253,7 @@ class UnifiAPI:
             'start': unixstart,
             'end': unixend
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, 'Stat_hourly', 'Hourly Statistics for site')
 
     def stat_hourly_ap(self, start=None, end=None):
         """
@@ -298,11 +270,7 @@ class UnifiAPI:
             'start': unixstart,
             'end': unixend
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'Hourly Statistics for AP')
 
     def stat_sessions(self, start=None, end=None):
         """
@@ -318,11 +286,7 @@ class UnifiAPI:
             'start': unixstart,
             'end': unixend
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'Session Statistics')
 
     def stat_sta_sessions_latest(self, mac, limit=None, sort='-assoc_time'):
         """
@@ -337,11 +301,7 @@ class UnifiAPI:
             '_limit': limit or 5,
             '_sort': sort
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'Station session statistics')
 
     def stat_auths(self, start=None, end=None):
         """
@@ -356,11 +316,7 @@ class UnifiAPI:
             start: unixstart,
             end: unixend
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'Authentication Statistics')
 
     def stat_allusers(self, historyhours=8760):
         """
@@ -373,11 +329,7 @@ class UnifiAPI:
             'conn': 'all',
             'within': historyhours
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'All users statistics')
 
     def list_guests(self, historyhours=8760):
         """
@@ -388,11 +340,7 @@ class UnifiAPI:
         content = self.sitecmdjson('/stat/guest', {
             'within': historyhours
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List guests')
 
     def list_clients(self, mac=None):
         """
@@ -402,11 +350,7 @@ class UnifiAPI:
         """
         # TODO: Fix this one, as it is not working
         content = self.sitecmdjson('/stat/sta/' + (urllib.parse.quote(mac) if mac else ''))
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List clients')
 
     def stat_client(self, mac=None):
         """
@@ -416,11 +360,7 @@ class UnifiAPI:
         """
         # TODO: Fix this one as it is not working
         content = self.sitecmdjson('/stat/user/' + (urllib.parse.quote(mac) if mac else ''))
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'Single device statistics')
 
     def list_usergroup(self):
         """
@@ -428,21 +368,13 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/list/usergroup')
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List usergroups')
 
     def set_usergroup(self, userid, groupid):
         content = self.sitecmdjson('/upd/user/' + userid, {
             'usergroup_id': groupid
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Set user %s group %s was successful' % (userid, groupid))
-            return True
-        self.log('Set user %s group %s was not successful' % (userid, groupid))
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Set usergroups')
 
     def list_health(self):
         """
@@ -450,11 +382,7 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/stat/health')
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'Health')
 
     def list_dashboard(self):
         """
@@ -462,11 +390,7 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/stat/dashboard')
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List dashboard')
 
     def list_users(self):
         """
@@ -474,11 +398,7 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/list/user')
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List users')
 
     def list_aps(self, mac=None):
         """
@@ -487,11 +407,7 @@ class UnifiAPI:
         """
         # TODO: It is not working with MAC different than None
         content = self.sitecmdjson('/stat/device/' + (urllib.parse.quote(mac) if mac else ''))
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List aps')
 
     def list_rogueaps(self, within=24):
         """
@@ -502,11 +418,7 @@ class UnifiAPI:
         content = self.sitecmdjson('/stat/rogueap', {
             'within': within
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List rogue aps')
 
     def list_sites(self):
         """
@@ -514,11 +426,7 @@ class UnifiAPI:
         :return:
         """
         content = self.reqjson('/api/self/sites')
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List sites')
 
     def stat_sites(self):
         """
@@ -526,11 +434,7 @@ class UnifiAPI:
         :return:
         """
         content = self.reqjson('/api/stat/sites')
-        if content['meta']['rc'] == 'ok':
-            self.log('Stat retrieving %s was successful' % self.site)
-            return content
-        self.log('Stat retrieving %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'Stat sites')
 
     def add_site(self, name=None, description=None):
         """
@@ -544,11 +448,7 @@ class UnifiAPI:
             'name': name,
             'desc': description
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Adding site %s was successful' % description)
-            return content
-        self.log('Adding site %s was not successful' % description)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'Add site')
 
     def remove_site(self, name, description=None):
         """
@@ -563,11 +463,7 @@ class UnifiAPI:
             'name': name,
             'desc': description
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Adding site %s was successful' % description)
-            return content
-        self.log('Adding site %s was not successful' % description)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'Remove Site')
 
     def list_wlan_groups(self):
         """
@@ -575,11 +471,7 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/list/wlangroup')
-        if content['meta']['rc'] == 'ok':
-            self.log('List wlan groups for site %s was successful' % self.site)
-            return content
-        self.log('List wlan groups for site %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List Wlan groups')
 
     def stat_sysinfo(self):
         """
@@ -587,11 +479,7 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/stat/sysinfo')
-        if content['meta']['rc'] == 'ok':
-            self.log('Stats for site %s was successful' % self.site)
-            return content
-        self.log('Stats for site %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'Sysinfo')
 
     def list_self(self):
         """
@@ -599,11 +487,7 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/self')
-        if content['meta']['rc'] == 'ok':
-            self.log('Stats for site %s was successful' % self.site)
-            return content
-        self.log('Stats for site %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'Self')
 
     def list_networkconf(self):
         """
@@ -611,11 +495,7 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/list/networkconf')
-        if content['meta']['rc'] == 'ok':
-            self.log('Stats for site %s was successful' % self.site)
-            return content
-        self.log('Stats for site %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List network config')
 
     def stat_voucher(self, createtime=None):
         """
@@ -626,11 +506,7 @@ class UnifiAPI:
         content = self.sitecmdjson('/stat/voucher', {
             'create_time': createtime
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Stats for site %s was successful' % self.site)
-            return content
-        self.log('Stats for site %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'Voucher Statistics')
 
     def stat_payment(self, within=None):
         """
@@ -641,11 +517,7 @@ class UnifiAPI:
         content = self.sitecmdjson('/stat/voucher', {
             'within': within
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Stats for site %s was successful' % self.site)
-            return content
-        self.log('Stats for site %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'Payment Statistics')
 
     def create_hotspot(self, name, password, note=None):
         """
@@ -660,11 +532,7 @@ class UnifiAPI:
             'name': name,
             'x_password': password
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Add hotspot to site %s was successful' % self.site)
-            return True
-        self.log('Add hotspot to site %s was not successful' % self.site)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Create Hotspot')
 
     def list_hotspot(self):
         """
@@ -672,11 +540,7 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/list/hotspotop')
-        if content['meta']['rc'] == 'ok':
-            self.log('Stats for site %s was successful' % self.site)
-            return content
-        self.log('Stats for site %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List hotspot')
 
     def create_voucher(self, minutes, count=1, quota=0, note=None, up=None, down=None, mbytes=None):
         """
@@ -700,11 +564,7 @@ class UnifiAPI:
             'n': count,
             'quota': quota
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Add voucher to site %s was successful' % self.site)
-            return True
-        self.log('Add voucher to site %s was not successful' % self.site)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Create voucher')
 
     def revoke_voucher(self, voucher_id):
         """
@@ -716,11 +576,7 @@ class UnifiAPI:
             'cmd': 'delete-voucher',
             '_id': voucher_id
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Remove voucher from site %s was successful' % self.site)
-            return True
-        self.log('Remove voucher from site %s was not successful' % self.site)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Revoke Voucher')
 
     def list_portforwarding(self):
         """
@@ -728,11 +584,7 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/list/portforward')
-        if content['meta']['rc'] == 'ok':
-            self.log('Stats for site %s was successful' % self.site)
-            return content
-        self.log('Stats for site %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List Port Forwarding')
 
     def list_dynamicdns(self):
         """
@@ -740,11 +592,7 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/list/dynamicdns')
-        if content['meta']['rc'] == 'ok':
-            self.log('Stats for site %s was successful' % self.site)
-            return content
-        self.log('Stats for site %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List Dynamic DNS')
 
     def list_portconf(self):
         """
@@ -752,11 +600,7 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/list/portconf')
-        if content['meta']['rc'] == 'ok':
-            self.log('Stats for site %s was successful' % self.site)
-            return content
-        self.log('Stats for site %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List Port Config')
 
     def list_extension(self):
         """
@@ -764,11 +608,7 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/list/extension')
-        if content['meta']['rc'] == 'ok':
-            self.log('Stats for site %s was successful' % self.site)
-            return content
-        self.log('Stats for site %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List Extension')
 
     def list_settings(self):
         """
@@ -777,11 +617,7 @@ class UnifiAPI:
         """
         # TODO: Set settings to be implemented
         content = self.sitecmdjson('/get/setting')
-        if content['meta']['rc'] == 'ok':
-            self.log('Stats for site %s was successful' % self.site)
-            return content
-        self.log('Stats for site %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List settings')
 
     def restart_ap(self, mac):
         """
@@ -793,11 +629,7 @@ class UnifiAPI:
             'cmd': 'restart',
             'mac': mac.lower()
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Restart AP to site %s was successful' % self.site)
-            return True
-        self.log('Restart AP to site %s was not successful' % self.site)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Restart AP')
 
     def disable_ap(self, ap_id, disable=True):
         """
@@ -810,11 +642,7 @@ class UnifiAPI:
         content = self.sitecmdjson('/rest/device/' + urllib.parse.quote(ap_id), {
             'disabled': disable
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Disable AP to site %s was successful' % self.site)
-            return True
-        self.log('Disable AP to site %s was not successful' % self.site)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Disable AP')
 
     def enable_ap(self, ap_id, disable=False):
         return self.disable_ap(ap_id, disable)
@@ -829,11 +657,7 @@ class UnifiAPI:
             'mac': mac.lower(),
             'cmd': 'set-locate'
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Locate AP to site %s was successful' % self.site)
-            return True
-        self.log('Locate AP to site %s was not successful' % self.site)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Locate AP')
 
     def unset_locate_ap(self, mac):
         """
@@ -845,11 +669,7 @@ class UnifiAPI:
             'mac': mac.lower(),
             'cmd': 'unset-locate'
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Locate unset AP to site %s was successful' % self.site)
-            return True
-        self.log('Locate unset AP to site %s was not successful' % self.site)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Locate AP')
 
     def site_ledson(self):
         """
@@ -859,11 +679,7 @@ class UnifiAPI:
         content = self.sitecmdjson('/set/setting/mgmt', {
             'led_enabled': True
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('On Led of AP to site %s was successful' % self.site)
-            return True
-        self.log('On Led of AP to site %s was not successful' % self.site)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Site Leds on')
 
     def site_ledsoff(self):
         """
@@ -873,11 +689,7 @@ class UnifiAPI:
         content = self.sitecmdjson('/set/setting/mgmt', {
             'led_enabled': False
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Off Led of AP to site %s was successful' % self.site)
-            return True
-        self.log('Off Led of AP to site %s was not successful' % self.site)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Site Leds off')
 
     def set_ap_radiosettings(self, ap_id, radio='ng', channel=1, ht='20', tx_power_mode=0, tx_power=0):
         """
@@ -897,11 +709,7 @@ class UnifiAPI:
             'tx_power_mode': tx_power_mode,
             'tx_power': tx_power
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('AP settings to site %s was successful' % self.site)
-            return True
-        self.log('AP settings to site %s was not successful' % self.site)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'AP Radio Settings')
 
     def set_guestlogin_settings(self, portal_enabled, portal_customized,
                                 redirect_enabled, redirect_url, x_password, expire_number, expire_unit, site_id):
@@ -928,11 +736,7 @@ class UnifiAPI:
             'site_id': site_id
         })
         # TODO: Test it
-        if content['meta']['rc'] == 'ok':
-            self.log('Guest portal settings to site %s was successful' % self.site)
-            return True
-        self.log('Guest portal settings to site %s was not successful' % self.site)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Guest Login Settings')
 
     def rename_ap(self, ap_id, ap_name):
         """
@@ -945,11 +749,7 @@ class UnifiAPI:
         content = self.sitecmdjson('/upd/device/' + str(ap_id), {
             'name': ap_name
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Rename AP for site %s was successful' % self.site)
-            return True
-        self.log('Rename AP for site %s was not successful' % self.site)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Rename AP')
 
     def set_wlansettings(self, wlan_id, x_password, name=None):
         """
@@ -964,11 +764,7 @@ class UnifiAPI:
             'x_passphrase': x_password,
             'name': name
         })
-        if content['meta']['rc'] == 'ok':
-            self.log('Wlan settings to site %s was successful' % self.site)
-            return True
-        self.log('Wlan settings to site %s was not successful' % self.site)
-        return False
+        return self.response(content, inspect.stack()[0].function, 'Set WLAN Settings')
 
     def list_events(self):
         """
@@ -976,11 +772,7 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/stat/event')
-        if content['meta']['rc'] == 'ok':
-            self.log('List events to site %s was successful' % self.site)
-            return content
-        self.log('List events to site %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List Events')
 
     def list_wlanconf(self):
         """
@@ -988,11 +780,16 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/list/wlanconf')
-        if content['meta']['rc'] == 'ok':
-            self.log('Wlan settings from site %s was successful' % self.site)
-            return content
-        self.log('Wlan settings from site %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List WLAN Conf')
+
+    def get_wlanconf(self):
+        """
+        get wlan config
+        :return:
+        """
+        content = self.sitecmdjson('/rest/wlanconf')
+        return self.response(content, inspect.stack()[0].function, 'Get WLAN Conf')
+
 
     def list_alarms(self):
         """
@@ -1000,8 +797,146 @@ class UnifiAPI:
         :return:
         """
         content = self.sitecmdjson('/list/alarm')
-        if content['meta']['rc'] == 'ok':
-            self.log('List alarms to site %s was successful' % self.site)
-            return content
-        self.log('List alarms to site %s was not successful' % self.site)
-        return content
+        return self.response(content, inspect.stack()[0].function, 'List Alarms')
+
+    def set_ap_led(self, ap_id, led_override="default"):
+        """
+        Override led per device
+        :param led_override: options on, off, default
+        :param ap_id:
+        :return:
+        """
+        content = self.sitecmdjson('/rest/device/'+str(ap_id), {
+            'led_override': led_override
+        })
+        return self.response(content, inspect.stack()[0].function, 'AP Led')
+
+    def set_ap_name(self, ap_id, name=None):
+        """
+        Override name per device
+        :param name:
+        :param ap_id:
+        :return:
+        """
+        content = self.sitecmdjson('/rest/device/'+str(ap_id), {
+            'name': name
+        }, method='PUT')
+        return self.response(content, inspect.stack()[0].function, 'Set AP Name')
+
+    def set_ap_wireless(self, ap_id, radio="ng", channel="auto", ht=20, min_rssi=-94, min_rssi_enabled=False,
+                        antenna_gain=6, tx_power_mode="auto"):
+        """
+        Set parameters to a wireless AP
+        :param ap_id:
+        :param radio:
+        :param channel:
+        :param min_rssi:
+        :param ht:
+        :param min_rssi_enabled:
+        :param antenna_gain:
+        :param tx_power_mode:
+        :return:
+        """
+        content = self.sitecmdjson('/rest/device/'+str(ap_id), {
+            "radio_table": [
+                {
+                    "antenna_gain": antenna_gain,
+                    "channel": channel,
+                    "radio": radio,
+                    "ht": ht,
+                    "min_rssi": min_rssi,
+                    "min_rssi_enabled": min_rssi_enabled,
+                    "tx_power_mode": tx_power_mode
+                }
+            ]
+        }, method='PUT')
+        return self.response(content, inspect.stack()[0].function, 'Set AP Wireless Settings')
+
+    def status(self):
+        """
+        Retrieve status
+        :return:
+        """
+        content = self.reqjson('/status')
+        return self.response(content, inspect.stack()[0].function, 'Status')
+
+    def set_ap_network(self, ap_id, type="dhcp", ip="192.168.1.6", netmask="255.255.255.0", gateway="192.168.1.1", dns1="8.8.8.8", dns2="8.8.4.4"):
+        """
+        Configure network
+        :param ap_id:
+        :param type:
+        :param ip:
+        :param netmask:
+        :param gateway:
+        :param dns1:
+        :param dns2:
+        :return:
+        """
+        content = self.sitecmdjson('/rest/device/' + str(ap_id), {
+            "config_network": [
+                {
+                    "type": type,
+                    "ip": ip,
+                    "netmask": netmask,
+                    "gateway": gateway,
+                    "dns1": dns1,
+                    "dns2": dns2
+                }
+            ]
+        }, method='PUT')
+        return self.response(content, inspect.stack()[0].function, 'AP Network Config')
+
+    def request_spectrumscan(self, mac):
+        """
+        Request spectrum scan
+        :param mac:
+        :return:
+        """
+        content = self.sitecmdjson('/cmd/devmgr', {
+            "cmd": "spectrum-scan",
+            "mac": mac
+        })
+        return self.response(content, inspect.stack()[0].function, 'Request Spectrum Scan')
+
+    def set_site_descr(self, description):
+        """
+        Set site description
+        :param description:
+        :return:
+        """
+        content = self.sitecmdjson('/cmd/sitemgr', {
+            "cmd": "update-site",
+            "desc": description
+        })
+        return self.response(content, inspect.stack()[0].function, 'Site Description')
+
+    def set_site_settings(self, gen_id, site_id, advanced=True, alerts=True, auto_upgrade=True, key="mgmt",
+                          led_enabled=True, x_ssh_username="ubnt", x_ssh_password="UBNT",
+                          x_ssh_md5passwd = "$1$PiGDOzRF$GX49UVoQSqwaLgXu/Cuvb/"):
+        """
+        Site settings
+        :param gen_id:
+        :param site_id:
+        :param advanced:
+        :param alerts:
+        :param auto_upgrade:
+        :param key:
+        :param led_enabled:
+        :param x_ssh_username:
+        :param x_ssh_password:
+        :param x_ssh_md5passwd:
+        :return:
+        """
+        content = self.sitecmdjson('/set/setting/mgmt/'+str(gen_id), {
+            "_id": str(gen_id),
+            "advanced_feature_enabled": advanced,
+            "alert_enabled": alerts,
+            "auto_upgrade": auto_upgrade,
+            "key": key,
+            "led_enabled": led_enabled,
+            "site_id": site_id,
+            "x_ssh_username": x_ssh_username,
+            "x_ssh_password": x_ssh_password,
+            "x_ssh_md5passwd": x_ssh_md5passwd
+        })
+        return self.response(content, inspect.stack()[0].function, 'Set Site Settings')
