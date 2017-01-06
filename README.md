@@ -1,4 +1,4 @@
-# pythonUnifiAPI
+# Python UnifiAPI implementation
 Python3 port of UniFi-API-Browser API with small extensions
 
 <b>Usage:</b>
