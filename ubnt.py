@@ -9,5 +9,8 @@ u = UnifiAPI.UnifiAPI(username='ubnt', password='UBNT', debug=True)
 #d = u.set_ap_wireless('5853dd90e4b03771018a974e', radio="ng", channel=7)
 #d = u.request_spectrumscan('80:2a:a8:89:05:38')
 
-d = u.list_hotspot2()
+#d = u.list_hotspot2()
+#print(d)
+
+d = u.add_wlanconf("MWN-Exp", wlangroup_id="5853dc2ae4b03771018a9741")
 print(d)
