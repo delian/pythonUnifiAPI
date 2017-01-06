@@ -1,6 +1,6 @@
-import UnifiAPI
+from UnifiAPI.UnifiAPI import UnifiAPI
 
-u = UnifiAPI.UnifiAPI(username='ubnt', password='UBNT', debug=True)
+u = UnifiAPI(username='ubnt', password='UBNT', debug=True)
 #d = u.stat_sessions()
 #print (d['data'][0]['mac'])
 #d = u.stat_sta_sessions_latest(d['data'][0]['mac'])
