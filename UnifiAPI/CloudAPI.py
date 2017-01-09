@@ -133,3 +133,14 @@ class CloudAPI:
         content = self.reqjson("/devices", baseurl="https://device-airos.svc.ubnt.com/api/airos/v1/unifi")
         return content
 
+    def delete_device(self, device_id):
+        """
+        Delete device by device id
+        :param device_id:
+        :return:
+        """
+        content = self.reqjson("/devices/"+str(device_id),
+                               baseurl="https://device-airos.svc.ubnt.com/api/airos/v1/unifi",
+                               method = "DELETE"
+                               )
+        return content

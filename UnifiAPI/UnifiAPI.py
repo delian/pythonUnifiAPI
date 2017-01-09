@@ -1086,3 +1086,48 @@ class UnifiAPI:
             "ratectrl_ng_mode": ratectrl_ng_mode
         })
         return self.response(content, inspect.stack()[0].function, 'Modify WlanConf')
+
+    def sdn_unregister(self):
+        """
+        Disable and remove cloud access
+        :return:
+        """
+        content = self.sitecmdjson("/cmd/sdn", {
+            "cmd": "unregister"
+        })
+        return self.response(content, inspect.stack()[0].function, 'Unregister SDN')
+
+    def sdn_register(self, username, password):
+        """
+        Register into SDN
+        :param username:
+        :param password:
+        :return:
+        """
+        content = self.sitecmdjson("/cmd/sdn", {
+            "cmd": "register",
+            "ubic_username": username,
+            "ubic_password": password
+        })
+        return self.response(content, inspect.stack()[0].function, 'Register SDN')
+
+    def sdn_stat(self):
+        """
+        Get the SDN status
+        :return:
+        """
+        content = self.sitecmdjson("/stat/sdn")
+        return self.response(content, inspect.stack()[0].function, 'Status SDN')
+
+    def sdn_onoff(self, enabled=True, site_id = None):
+        """
+        Change the status
+        :param enabled:
+        :param site_id:
+        :return:
+        """
+        content = self.sitecmdjson("/set/setting/super_sdn", {
+            "key": "super_sdn",
+            "enabled": enabled,
+            "site_id": site_id
+        })
