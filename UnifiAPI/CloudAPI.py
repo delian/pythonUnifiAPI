@@ -144,3 +144,15 @@ class CloudAPI:
                                method = "DELETE"
                                )
         return content
+
+    def launch_dashboard(self, d):
+        """
+        Return info about the dashboard
+        :param d: dashboard id
+        :return:
+        """
+        content = self.reqjson("/turn/creds?username="+str(d),
+                               baseurl="https://device-airos.svc.ubnt.com/api/airos/v1/unifi",
+                               method = "GET"
+                               )
+        return content
